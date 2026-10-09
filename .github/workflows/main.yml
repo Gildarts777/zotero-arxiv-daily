@@ -28,6 +28,11 @@ jobs:
           OPENAI_API_BASE: ${{ secrets.OPENAI_API_BASE }}
           CUSTOM_CONFIG: ${{ vars.CUSTOM_CONFIG }}
         run: |
+          echo "=== DEBUG VARIABILI D'AMBIENTE ==="
+          echo "OPENAI_API_BASE vede: '${OPENAI_API_BASE}'"
+          echo "OPENAI_API_KEY vede (se è piena vedrai degli asterischi): '${OPENAI_API_KEY}'"
+          echo "=================================="
+          
           printf "%b\n" "$CUSTOM_CONFIG" > config/custom.yaml
           echo "Use custom config: "
           cat config/custom.yaml
