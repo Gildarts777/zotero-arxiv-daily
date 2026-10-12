@@ -205,7 +205,7 @@ class TestWorkerIntegration:
 
     def test_invalid_id_returns_html(self):
         import urllib.request
-        url = f"{self._url}/add?id=0000.00000"
+        url = f"{self._url}/add?id=1512.03385"
         with urllib.request.urlopen(urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0 (compatible; ZoteroTest/1.0)"}), timeout=30) as resp:
             body = resp.read().decode()
         assert "<!DOCTYPE html>" in body
