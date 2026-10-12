@@ -41,7 +41,7 @@ jobs:
           uv run pytest tests/test_add_to_zotero.py -v \
             --tb=short \
             -m "not integration" \
-            --cov=src/zotero_arxiv_daily/construct_email \
+            --cov=zotero_arxiv_daily.construct_email \
             --cov-report=term-missing
         # ZOTERO_ADD_URL is intentionally NOT set here.
         # The test overrides ce.ZOTERO_ADD_URL directly for the button-present tests,
