@@ -1,0 +1,70 @@
+name: Test SMTP Connection
+
+on:
+  workflow_dispatch:  # Esegui manualmente dalla scheda Actions
+
+jobs:
+  test-smtp:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Test Gmail SMTP
+        env:
+          SENDER: ${{ secrets.SENDER }}
+          SENDER_PASSWORD: ${{ secrets.SENDER_PASSWORD }}
+        run: |
+          python3 - <<'EOF'
+          import smtplib
+          from email.message import EmailMessage
+          import os
+          import sys
+
+          email_mittente = os.environ.get("SENDER")
+          password_app   = os.environ.get("SENDER_PASSWORD")
+
+          if not email_mittente or not password_app:
+              print("ERRORE: I segreti SENDER o SENDER_PASSWORD non sono impostati.")
+              sys.exit(1)
+
+          print(f"Indirizzo mittente: {email_mittente}")
+          print(f"Password caricata: {'Sì' if password_app else 'No'} ({len(password_app)} caratteri)")
+
+          msg = EmailMessage()
+          msg.set_content("Test connessione SMTP da GitHub Actions")
+          msg['Subject'] = "Test SMTP - GitHub Actions"
+          msg['From']    = email_mittente
+          msg['To']      = email_mittente   # manda a se stesso
+
+          # --- Tentativo 1: SSL sulla porta 465 ---
+          print("\n[1] Tentativo SMTP_SSL porta 465...")
+          try:
+              with smtplib.SMTP_SSL('smtp.gmail.com', 465, timeout=15) as server:
+                  server.login(email_mittente, password_app)
+                  server.send_message(msg)
+              print("    ✅ Successo con SSL/465!")
+              sys.exit(0)
+          except smtplib.SMTPAuthenticationError as e:
+              print(f"    ❌ Errore di autenticazione: {e}")
+              print("       → La password per le app è sbagliata o non è una App Password Gmail.")
+          except Exception as e:
+              print(f"    ❌ Altro errore: {e}")
+
+          # --- Tentativo 2: STARTTLS sulla porta 587 ---
+          print("\n[2] Tentativo STARTTLS porta 587...")
+          try:
+              with smtplib.SMTP('smtp.gmail.com', 587, timeout=15) as server:
+                  server.ehlo()
+                  server.starttls()
+                  server.ehlo()
+                  server.login(email_mittente, password_app)
+                  server.send_message(msg)
+              print("    ✅ Successo con STARTTLS/587!")
+              sys.exit(0)
+          except smtplib.SMTPAuthenticationError as e:
+              print(f"    ❌ Errore di autenticazione: {e}")
+              print("       → La password per le app è sbagliata o non è una App Password Gmail.")
+          except Exception as e:
+              print(f"    ❌ Altro errore: {e}")
+
+          print("\nEntrambi i tentativi sono falliti.")
+          sys.exit(1)
+          EOF
