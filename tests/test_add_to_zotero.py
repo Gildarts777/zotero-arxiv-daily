@@ -192,7 +192,7 @@ class TestWorkerIntegration:
             f"?id={urllib.parse.quote(arxiv_id)}"
             f"&tldr={urllib.parse.quote(tldr)}"
         )
-        with urllib.request.urlopen(url, timeout=30) as resp:
+        with urllib.request.urlopen(urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0 (compatible; ZoteroTest/1.0)"}), timeout=30) as resp:
             assert resp.status == 200
             body = resp.read().decode()
         assert "Zotero" in body
@@ -201,12 +201,12 @@ class TestWorkerIntegration:
     def test_missing_id_returns_400(self):
         import urllib.request, urllib.error
         with pytest.raises(urllib.error.HTTPError) as exc_info:
-            urllib.request.urlopen(f"{self._url}/add", timeout=10)
+            urllib.request.urlopen(urllib.request.Request(f"{self._url}/add", headers={"User-Agent": "Mozilla/5.0 (compatible; ZoteroTest/1.0)"}), timeout=10)
         assert exc_info.value.code == 400
 
     def test_invalid_id_returns_html(self):
         import urllib.request
         url = f"{self._url}/add?id=0000.00000"
-        with urllib.request.urlopen(url, timeout=30) as resp:
+        with urllib.request.urlopen(urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0 (compatible; ZoteroTest/1.0)"}), timeout=30) as resp:
             body = resp.read().decode()
         assert "<!DOCTYPE html>" in body
