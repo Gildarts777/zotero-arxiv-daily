@@ -151,7 +151,12 @@ def render_email(papers:list[Paper]) -> str:
         else:
             authors = ', '.join(author_list[:3] + ['...'] + author_list[-2:])
 
-        affiliations = ', '.join(p.affiliations) if p.affiliations else 'Unknown'
+        if not p.affiliations:
+            affiliations = 'Unknown Affiliation'
+        elif len(p.affiliations) <= 5:
+            affiliations = ', '.join(p.affiliations)
+        else:
+            affiliations = ', '.join(list(p.affiliations)[:5] + ['...'])
         tldr = p.tldr if p.tldr else p.abstract[:200] + '...' if p.abstract else ''
         arxiv_id = _extract_arxiv_id(p.url)
 
