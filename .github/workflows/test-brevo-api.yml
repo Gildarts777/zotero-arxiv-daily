@@ -1,0 +1,71 @@
+name: Test Brevo API Email
+
+on:
+  workflow_dispatch:
+
+jobs:
+  test-brevo:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send test email via Brevo API
+        env:
+          BREVO_API_KEY: ${{ secrets.API_SECRET_BREVO }}
+          SENDER: ${{ secrets.SENDER }}
+        run: |
+          python3 - <<'EOF'
+          import urllib.request
+          import urllib.error
+          import json
+          import os
+          import sys
+
+          api_key = os.environ.get("BREVO_API_KEY")
+          sender  = os.environ.get("SENDER")
+
+          if not api_key:
+              print("ERRORE: Il segreto API_SECRET_BREVO non è impostato.")
+              sys.exit(1)
+          if not sender:
+              print("ERRORE: Il segreto SENDER non è impostato.")
+              sys.exit(1)
+
+          print(f"Mittente:  {sender}")
+          print(f"API key:   {'*' * (len(api_key) - 4)}{api_key[-4:]}")
+
+          payload = {
+              "sender":      {"name": "GitHub Actions Test", "email": sender},
+              "to":          [{"email": sender, "name": "Test Recipient"}],
+              "subject":     "✅ Test Brevo API da GitHub Actions",
+              "htmlContent": """
+                <h2>Test riuscito!</h2>
+                <p>Questa email è stata inviata tramite l'API HTTP di Brevo
+                   da un workflow GitHub Actions.</p>
+              """
+          }
+
+          req = urllib.request.Request(
+              "https://api.brevo.com/v3/smtp/email",
+              data=json.dumps(payload).encode("utf-8"),
+              headers={
+                  "api-key":      api_key,
+                  "Content-Type": "application/json",
+                  "Accept":       "application/json",
+              },
+              method="POST"
+          )
+
+          print("\nChiamata a https://api.brevo.com/v3/smtp/email ...")
+          try:
+              with urllib.request.urlopen(req, timeout=30) as resp:
+                  body = json.loads(resp.read().decode())
+                  print(f"✅ Successo! Status: {resp.status}")
+                  print(f"   messageId: {body.get('messageId', 'n/a')}")
+          except urllib.error.HTTPError as e:
+              body = e.read().decode()
+              print(f"❌ HTTP {e.code}: {e.reason}")
+              print(f"   Risposta: {body}")
+              sys.exit(1)
+          except Exception as e:
+              print(f"❌ Errore: {e}")
+              sys.exit(1)
+          EOF
