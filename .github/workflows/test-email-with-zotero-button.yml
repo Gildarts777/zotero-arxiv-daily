@@ -1,0 +1,113 @@
+name: Test – Email con bottone Add to Zotero
+
+on:
+  workflow_dispatch:
+
+jobs:
+  send-test-email:
+    name: Invia email di test con paper prestabilito
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v7
+
+      - name: Costruisci e invia email di test
+        env:
+          BREVO_API_KEY: ${{ secrets.API_SECRET_BREVO }}
+          SENDER:        ${{ secrets.SENDER }}
+          RECEIVER:      ${{ secrets.RECEIVER }}
+          ZOTERO_ADD_URL: ${{ secrets.ZOTERO_ADD_URL }}
+        run: |
+          uv run python - <<'EOF'
+          import os, sys, json, urllib.request, urllib.error, datetime
+
+          # ── Dipendenze dal package ────────────────────────────────────────
+          from zotero_arxiv_daily.protocol import Paper
+          from zotero_arxiv_daily.construct_email import render_email
+
+          # ── Paper di test fisso (Attention Is All You Need) ───────────────
+          paper = Paper(
+              source      = "arxiv",
+              title       = "Attention Is All You Need",
+              authors     = [
+                  "Vaswani, Ashish", "Shazeer, Noam", "Parmar, Niki",
+                  "Uszkoreit, Jakob", "Jones, Llion", "Gomez, Aidan N.",
+                  "Kaiser, Łukasz", "Polosukhin, Illia",
+              ],
+              abstract    = (
+                  "The dominant sequence transduction models are based on complex "
+                  "recurrent or convolutional neural networks that include an encoder "
+                  "and a decoder. The best performing models also connect the encoder "
+                  "and decoder through an attention mechanism. We propose a new simple "
+                  "network architecture, the Transformer, based solely on attention "
+                  "mechanisms, dispensing with recurrence and convolutions entirely."
+              ),
+              url         = "https://arxiv.org/abs/1706.03762",
+              pdf_url     = "https://arxiv.org/pdf/1706.03762.pdf",
+              tldr        = (
+                  "I Transformer sostituiscono completamente RNN e CNN con pura "
+                  "self-attention, raggiungendo nuovi SOTA su traduzione automatica "
+                  "con molto meno tempo di training."
+              ),
+              affiliations = ["Google Brain", "Google Research", "University of Toronto"],
+              score       = 9.5,
+          )
+
+          # ── Render email ──────────────────────────────────────────────────
+          html = render_email([paper])
+
+          # ── Variabili d'ambiente ──────────────────────────────────────────
+          api_key  = os.environ.get("BREVO_API_KEY", "")
+          sender   = os.environ.get("SENDER", "")
+          receiver = os.environ.get("RECEIVER", "")
+
+          missing = [k for k, v in [("API_SECRET_BREVO", api_key), ("SENDER", sender), ("RECEIVER", receiver)] if not v]
+          if missing:
+              print(f"ERRORE: secret mancanti: {', '.join(missing)}")
+              sys.exit(1)
+
+          if not os.environ.get("ZOTERO_ADD_URL"):
+              print("ATTENZIONE: ZOTERO_ADD_URL non impostato — il bottone 'Add to Zotero' sarà assente.")
+          else:
+              print(f"Worker URL: {os.environ['ZOTERO_ADD_URL']}")
+
+          # ── Invio via Brevo ───────────────────────────────────────────────
+          today = datetime.datetime.now().strftime("%Y/%m/%d")
+          payload = {
+              "sender":      {"name": "GitHub Actions – Test Zotero", "email": sender},
+              "to":          [{"email": receiver}],
+              "subject":     f"[TEST] arXiv Daily {today} – con bottone Add to Zotero",
+              "htmlContent": html,
+          }
+
+          req = urllib.request.Request(
+              "https://api.brevo.com/v3/smtp/email",
+              data=json.dumps(payload).encode("utf-8"),
+              headers={
+                  "api-key":      api_key,
+                  "Content-Type": "application/json",
+                  "Accept":       "application/json",
+              },
+              method="POST",
+          )
+
+          print(f"Mittente:  {sender}")
+          print(f"Destinatario: {receiver}")
+          print("Chiamata a https://api.brevo.com/v3/smtp/email ...")
+
+          try:
+              with urllib.request.urlopen(req, timeout=30) as resp:
+                  body = json.loads(resp.read().decode())
+                  print(f"✅ Email inviata! messageId: {body.get('messageId', 'n/a')}")
+          except urllib.error.HTTPError as e:
+              err = e.read().decode()
+              print(f"❌ Brevo HTTP {e.code}: {err}")
+              sys.exit(1)
+          except Exception as e:
+              print(f"❌ Errore: {e}")
+              sys.exit(1)
+          EOF
