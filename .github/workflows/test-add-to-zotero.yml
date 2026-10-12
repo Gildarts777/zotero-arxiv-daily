@@ -1,1 +1,84 @@
+name: Test – Add to Zotero feature
 
+on:
+  push:
+    branches: [main]
+    paths:
+      - "src/zotero_arxiv_daily/construct_email.py"
+      - "tests/test_add_to_zotero.py"
+      - ".github/workflows/test-zotero-add.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "src/zotero_arxiv_daily/construct_email.py"
+      - "tests/test_add_to_zotero.py"
+      - ".github/workflows/test-zotero-add.yml"
+  workflow_dispatch:
+    inputs:
+      run_integration:
+        description: "Run integration tests against the live Cloudflare Worker?"
+        type: boolean
+        default: false
+
+# ─────────────────────────────────────────────────────────────
+# JOB 1 – Unit tests (no secrets, no network)
+# Runs on every push / PR automatically.
+# ─────────────────────────────────────────────────────────────
+jobs:
+  unit-tests:
+    name: Unit tests (no network)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v7
+
+      - name: Run unit tests for Add-to-Zotero
+        run: |
+          uv run pytest tests/test_add_to_zotero.py -v \
+            --tb=short \
+            -m "not integration" \
+            --cov=src/zotero_arxiv_daily/construct_email \
+            --cov-report=term-missing
+        # ZOTERO_ADD_URL is intentionally NOT set here.
+        # The test overrides ce.ZOTERO_ADD_URL directly for the button-present tests,
+        # and the no-button tests verify behaviour when the var is empty.
+
+# ─────────────────────────────────────────────────────────────
+# JOB 2 – Integration test against the live Cloudflare Worker
+# Only runs when manually triggered with run_integration=true
+# AND both secrets are present.
+# ─────────────────────────────────────────────────────────────
+  integration-tests:
+    name: Integration test (live Worker + Zotero)
+    runs-on: ubuntu-latest
+    # Only run when explicitly requested via workflow_dispatch
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.run_integration == true }}
+    needs: unit-tests          # unit tests must pass first
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v7
+
+      - name: Check required secrets are present
+        run: |
+          if [ -z "${{ secrets.ZOTERO_ADD_URL }}" ]; then
+            echo "::error::Secret ZOTERO_ADD_URL is not set. Add it in Settings → Secrets."
+            exit 1
+          fi
+          echo "Secrets OK — running integration tests against ${{ secrets.ZOTERO_ADD_URL }}"
+
+      - name: Run integration tests (hits real Worker and real Zotero)
+        env:
+          RUN_INTEGRATION_TESTS: "1"
+          WORKER_URL: ${{ secrets.ZOTERO_ADD_URL }}
+        run: |
+          uv run pytest tests/test_add_to_zotero.py -v \
+            --tb=short \
+            -k "Integration"
