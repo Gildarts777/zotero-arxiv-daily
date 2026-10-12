@@ -6,7 +6,6 @@ Run from the repo root with:
 """
 import os
 import urllib.parse
-
 import pytest
 
 # ---------------------------------------------------------------------------
