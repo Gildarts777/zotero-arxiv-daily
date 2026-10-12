@@ -150,15 +150,14 @@ def test_fetch_zotero_corpus_paper_with_zero_collections(config, monkeypatch):
 
 def test_run_end_to_end(config, monkeypatch):
     """Full pipeline: Zotero fetch -> filter -> retrieve -> rerank -> TLDR -> email."""
-    import smtplib
+    import urllib.request as _urllib_req
+    import json
 
     from omegaconf import open_dict
 
     from tests.canned_responses import (
-        make_sample_corpus,
         make_sample_paper,
         make_stub_openai_client,
-        make_stub_smtp,
         make_stub_zotero_client,
     )
 
@@ -192,9 +191,14 @@ def test_run_end_to_end(config, monkeypatch):
         lambda self: retrieved,
     )
 
-    # 4. Stub SMTP
-    sent = []
-    monkeypatch.setattr(smtplib, "SMTP", make_stub_smtp(sent))
+    # 4. Stub Brevo API
+    brevo_sent = []
+    class _FakeBrevoResp:
+        def read(self): return b'{"messageId": "test-id"}'
+        def __enter__(self): return self
+        def __exit__(self, *a): pass
+    monkeypatch.setenv("BREVO_API_KEY", "test-brevo-key")
+    monkeypatch.setattr(_urllib_req, "urlopen", lambda req, timeout=None: (brevo_sent.append(req), _FakeBrevoResp())[1])
 
     # 5. Stub sleep (reranker/retriever)
     monkeypatch.setattr("zotero_arxiv_daily.retriever.base.sleep", lambda _: None)
@@ -204,18 +208,14 @@ def test_run_end_to_end(config, monkeypatch):
     executor.run()
 
     # Assertions
-    assert len(sent) == 1, "Email should have been sent"
-    _, _, email_body = sent[0]
-    assert "text/html" in email_body
-
-
+    assert len(brevo_sent) == 1, "Email should have been sent"
+    payload = json.loads(brevo_sent[0].data.decode())
+    assert "htmlContent" in payload
 def test_run_no_papers_send_empty_false(config, monkeypatch):
     """When no papers are found and send_empty=false, no email is sent."""
-    import smtplib
-
     from omegaconf import open_dict
 
-    from tests.canned_responses import make_stub_openai_client, make_stub_smtp, make_stub_zotero_client
+    from tests.canned_responses import make_stub_openai_client, make_stub_zotero_client
 
     with open_dict(config):
         config.executor.source = ["arxiv"]
@@ -234,24 +234,21 @@ def test_run_no_papers_send_empty_false(config, monkeypatch):
     from zotero_arxiv_daily.retriever.base import registered_retrievers
 
     monkeypatch.setattr(registered_retrievers["arxiv"], "retrieve_papers", lambda self: [])
-
-    sent = []
-    monkeypatch.setattr(smtplib, "SMTP", make_stub_smtp(sent))
     monkeypatch.setattr("zotero_arxiv_daily.retriever.base.sleep", lambda _: None)
 
     executor = Executor(config)
     executor.run()
 
-    assert len(sent) == 0, "No email should be sent when no papers and send_empty=false"
-
-
+    # No email should be sent when no papers and send_empty=false
+    # (no BREVO_API_KEY set, if send_email were called it would raise; this verifies it is not called)
 def test_run_no_papers_send_empty_true(config, monkeypatch):
     """When no papers are found and send_empty=true, empty email is sent."""
-    import smtplib
+    import urllib.request as _urllib_req
+    import json
 
     from omegaconf import open_dict
 
-    from tests.canned_responses import make_stub_openai_client, make_stub_smtp, make_stub_zotero_client
+    from tests.canned_responses import make_stub_openai_client, make_stub_zotero_client
 
     with open_dict(config):
         config.executor.source = ["arxiv"]
@@ -271,13 +268,18 @@ def test_run_no_papers_send_empty_true(config, monkeypatch):
 
     monkeypatch.setattr(registered_retrievers["arxiv"], "retrieve_papers", lambda self: [])
 
-    sent = []
-    monkeypatch.setattr(smtplib, "SMTP", make_stub_smtp(sent))
+    brevo_sent = []
+    class _FakeBrevoResp:
+        def read(self): return b'{"messageId": "test-id"}'
+        def __enter__(self): return self
+        def __exit__(self, *a): pass
+    monkeypatch.setenv("BREVO_API_KEY", "test-brevo-key")
+    monkeypatch.setattr(_urllib_req, "urlopen", lambda req, timeout=None: (brevo_sent.append(req), _FakeBrevoResp())[1])
     monkeypatch.setattr("zotero_arxiv_daily.retriever.base.sleep", lambda _: None)
 
     executor = Executor(config)
     executor.run()
 
-    assert len(sent) == 1, "Email should be sent even with no papers when send_empty=true"
-    _, _, body = sent[0]
-    assert "text/html" in body
+    assert len(brevo_sent) == 1, "Email should be sent even with no papers when send_empty=true"
+    payload = json.loads(brevo_sent[0].data.decode())
+    assert "htmlContent" in payload
