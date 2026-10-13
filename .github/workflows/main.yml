@@ -26,6 +26,7 @@ jobs:
           BREVO_API_KEY: ${{ secrets.API_SECRET_BREVO }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           OPENAI_API_BASE: ${{ secrets.OPENAI_API_BASE }}
+          ZOTERO_ADD_URL: ${{ secrets.ZOTERO_ADD_URL }}
           CUSTOM_CONFIG: ${{ vars.CUSTOM_CONFIG }}
         run: |
           echo "=== DEBUG VARIABILI D'AMBIENTE ==="
