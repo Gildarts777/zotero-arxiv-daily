@@ -24,4 +24,5 @@ source:
 
 executor:
   debug: ${oc.env:DEBUG,null}
+  max_paper_num: 12 # The maximum number of the papers presented in the email. Example: 100
   source: ['arxiv']
