@@ -2,7 +2,7 @@ name: Send emails daily
 on:
   workflow_dispatch:
   schedule:
-    - cron: '15 5 * * 1-5'
+    - cron: '18 5 * * 1-5'
 
 jobs:
   calculate-and-send:
@@ -29,11 +29,6 @@ jobs:
           ZOTERO_ADD_URL: ${{ secrets.ZOTERO_ADD_URL }}
           CUSTOM_CONFIG: ${{ vars.CUSTOM_CONFIG }}
         run: |
-          echo "=== DEBUG VARIABILI D'AMBIENTE ==="
-          echo "OPENAI_API_BASE vede: '${OPENAI_API_BASE}'"
-          echo "OPENAI_API_KEY vede (se è piena vedrai degli asterischi): '${OPENAI_API_KEY}'"
-          echo "=================================="
-          
           printf "%b\n" "$CUSTOM_CONFIG" > config/custom.yaml
           echo "Use custom config: "
           cat config/custom.yaml
