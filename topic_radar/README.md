@@ -87,7 +87,7 @@ Quantità e soglie sono in `config.yaml` → `selection`.
    | `ZOTERO_KEY` | già presente, ma serve anche la **scrittura** |
    | `RADAR_ZOTERO_ID`, `RADAR_ZOTERO_KEY` | il secondo account (ID numerico + chiave con scrittura) |
    | `RADAR_LINK_SECRET` | il segreto del punto 2 (lo stesso messo nel Worker) |
-   | `RADAR_OPENAI_API_KEY` | la chiave del nuovo account LLM (stesso sito di `OPENAI_API_BASE`) |
+   | `RADAR_OPENAI_API_KEY` | la chiave LLM per Topic Radar (es. Groq: console.groq.com/keys) |
    | `S2_API_KEY` | consigliata, gratuita: https://www.semanticscholar.org/product/api#api-key-form |
 
 5. **Variables**:
@@ -95,7 +95,8 @@ Quantità e soglie sono in `config.yaml` → `selection`.
    | Variable | Esempio |
    |---|---|
    | `RADAR_COLLECTION` | **obbligatoria**: `Diffusion/Masked`; più nicchie separate da `;` (un'email per nicchia) |
-   | `LLM_MODEL` | il modello usato su quel sito |
+   | `LLM_MODEL` | il modello, es. `openai/gpt-oss-20b` su Groq |
+   | `RADAR_LLM_BASE_URL` | facoltativa: endpoint LLM solo per Topic Radar, es. `https://api.groq.com/openai/v1` (altrimenti `OPENAI_API_BASE`) |
    | `RADAR_ENABLED` | `false` spegne il radar (zotero-arxiv-daily non viene toccato) |
 
 6. Lancia **Topic Radar** (il primo giro parte sempre), poi aggiungilo al tuo sistema che avvia i workflow al mattino.

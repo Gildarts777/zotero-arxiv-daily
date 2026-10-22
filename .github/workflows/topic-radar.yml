@@ -80,7 +80,7 @@ jobs:
         env:
           S2_API_KEY: ${{ secrets.S2_API_KEY }}
           RADAR_OPENAI_API_KEY: ${{ secrets.RADAR_OPENAI_API_KEY }}
-          OPENAI_API_BASE: ${{ secrets.OPENAI_API_BASE }}
+          OPENAI_API_BASE: ${{ vars.RADAR_LLM_BASE_URL || secrets.OPENAI_API_BASE }}  # e.g. https://api.groq.com/openai/v1
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           LLM_PROVIDER: ${{ vars.LLM_PROVIDER }}
           LLM_MODEL: ${{ vars.LLM_MODEL }}

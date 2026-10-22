@@ -80,7 +80,8 @@ llm:
   provider: ${LLM_PROVIDER:-openai}
   api_key: ${RADAR_OPENAI_API_KEY}
   base_url: ${OPENAI_API_BASE}
-  model: ${LLM_MODEL}
+  model: ${LLM_MODEL}              # e.g. openai/gpt-oss-20b on Groq
+  max_tokens: 2048                 # reasoning models (gpt-oss) spend tokens before answering
   language: Italian
 
 email:
