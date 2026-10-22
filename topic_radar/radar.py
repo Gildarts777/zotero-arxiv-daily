@@ -17,7 +17,7 @@ from datetime import date
 
 import numpy as np
 
-from config import HERE, PUBLIC_LOGS, decisions_cfg, expand_profiles, load_config, radar_root
+from config import HERE, PUBLIC_LOGS, expand_profiles, load_config, radar_root
 from embeddings import Encoder
 from library import load_library, norm_title
 from llm import Summarizer
@@ -154,14 +154,17 @@ def run_profile(profile, cfg, lib, radar_lib, s2, encoder, today, venues):
     return picked, stats, [s.title for s in seeds]
 
 
-def decision_actions(email_cfg, targets, reject_key):
-    """Per-paper mailto links: accept into each target collection, or reject."""
-    from mail_decisions import decision_link
+def decision_actions(link_cfg, targets, keys):
+    """Per-paper one-click links: accept into each target collection of the main account, or reject.
+    keys = radar collections of this niche (Proposti / Scartati / Accettati)."""
+    from links import decision_link
+    from radar_store import ACCEPTED, PENDING, REJECTED
 
     def actions(c):
-        pid, title = c.paper["paperId"], c.paper.get("title", "")
-        links = [(f"➕ {label}", decision_link(email_cfg, "A", pid, key, title, label)) for label, key in targets]
-        links.append(("🗑 Scarta", decision_link(email_cfg, "R", pid, reject_key, title, "Scartati")))
+        pid = c.paper["paperId"]
+        links = [(f"➕ {label}", decision_link(link_cfg, "A", pid, keys[PENDING], key, keys[ACCEPTED]))
+                 for label, key in targets]
+        links.append(("🗑 Scarta", decision_link(link_cfg, "R", pid, keys[PENDING], keys[REJECTED])))
         return links
     return actions
 
@@ -196,7 +199,7 @@ def main():
 
     state = radar.load_state() if radar else {}
     profiles = expand_profiles(cfg)
-    if radar and not args.force and cfg.get("decisions", {}).get("skip_if_unchanged", True):
+    if radar and not args.force and cfg.get("links", {}).get("skip_if_unchanged", True):
         from radar_store import fingerprint
         todo = [p for p in profiles
                 if state.get(p["collection"], {}).get("fingerprint") != fingerprint(lib, radar.lib, p, radar_root(cfg, p))]
@@ -223,17 +226,16 @@ def main():
 
         actions = footer = None
         if args.zotero:
-            from radar_store import REJECTED, accept_targets
+            from radar_store import accept_targets
             radar.add_pending(papers, root, today)
             log.info("added %d/%d proposals to the radar account", sum(bool(c.zotero_key) for c in papers), len(papers))
-            reject_key = radar.niche_keys(root)[REJECTED]
-            dcfg = decisions_cfg(cfg)
-            if dcfg.get("imap_password"):
-                actions = decision_actions(dcfg, accept_targets(lib, profile), reject_key)
-                from mail_decisions import force_link
-                footer = [("🔁 Mandami comunque nuovi paper al prossimo giro", force_link(dcfg, secrets.token_hex(4)))]
+            link_cfg = cfg.get("links") or {}
+            if link_cfg.get("worker_url") and link_cfg.get("secret"):
+                from links import force_link
+                actions = decision_actions(link_cfg, accept_targets(lib, profile), radar.niche_keys(root))
+                footer = [("🔁 Mandami comunque nuovi paper al prossimo giro", force_link(link_cfg, secrets.token_hex(4)))]
             else:
-                log.warning("RADAR_IMAP_PASSWORD not set: e-mail without decision buttons")
+                log.warning("RADAR_WORKER_URL / RADAR_LINK_SECRET not set: e-mail without decision buttons")
 
         body = render_html(profile["name"], picked, stats, today, actions=actions, footer=footer)
         slug = re.sub(r"\W+", "-", profile["name"]).strip("-").lower()

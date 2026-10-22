@@ -47,8 +47,8 @@ def render_html(profile_name, picked, stats, today, actions=None, footer=None):
     if actions:
         parts.append('<div style="color:#666;font-size:13px;margin-top:6px">Per ogni paper scegli una direzione: '
                      '<b>➕</b> lo aggiunge alla tua libreria nella collezione indicata (e stringe la nicchia), '
-                     "<b>🗑</b> lo scarta (i paper simili verranno penalizzati). Il clic apre un'email già pronta: "
-                     "inviala così com'è. Se non scegli nulla, il radar si ferma finché non lo fai.</div>")
+                     "<b>🗑</b> lo scarta (i paper simili verranno penalizzati). Basta un clic. "
+                     "Se non scegli nulla, il radar si ferma finché non lo fai.</div>")
     for section, cands in picked.items():
         icon, title, desc = SECTION_TITLES[section]
         parts.append(f'<h3 style="margin-top:28px">{icon} {title}</h3>'

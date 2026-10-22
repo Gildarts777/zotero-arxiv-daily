@@ -40,11 +40,6 @@ def expand_profiles(cfg):
     return out
 
 
-def decisions_cfg(cfg):
-    """Mailbox settings for decisions: the `decisions` section plus the receiver address."""
-    return {"receiver": cfg["email"]["receiver"], **cfg.get("decisions", {})}
-
-
 def radar_root(cfg, profile):
     """Collection path, in the radar account, holding this niche's Proposti / Scartati / Accettati."""
     return cfg["radar_zotero"]["root"].format(name=profile["name"])

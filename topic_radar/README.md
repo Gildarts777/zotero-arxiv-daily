@@ -20,9 +20,9 @@ scarti. Pensato per convergere su una nicchia stretta, per esempio per scrivere 
 
 1. **Email**: ogni paper ha i pulsanti `➕ Diffusion`, `➕ Masked`, `➕ Continuous` (la collezione di riferimento e le
    sue sottocollezioni dirette) e `🗑 Scarta`.
-2. **Un clic** apre un'email già compilata **indirizzata a te stesso**: la invii così com'è. Puoi decidere solo su
-   alcuni paper.
-3. **Al giro successivo** la pipeline legge quelle email dalla tua casella (IMAP) e:
+2. **Un clic e basta**, come "Add to Zotero" nel daily: il pulsante apre una pagina di conferma e la scelta è già
+   applicata su Zotero (da un piccolo Cloudflare Worker, cartella `worker/`). Nessuna email da inviare. Puoi decidere
+   solo su alcuni paper; un secondo clic sullo stesso paper non fa nulla.
    - `➕`: copia il paper, con la nota TL;DR, nella collezione scelta dell'account principale. Diventa un seme e la
      nicchia si stringe in quella direzione;
    - `🗑`: lo sposta in `Scartati` dell'account radar. I paper simili vengono penalizzati e quello scartato fa da
@@ -43,8 +43,8 @@ Si lanciano da **Actions → Run workflow** oppure dal tuo sistema esterno, come
 *collection* permette un giro una tantum su un'altra cartella. Anche il link "🔁 Mandami comunque nuovi paper" in
 fondo all'email forza il giro successivo. Per spegnere tutto: variabile `RADAR_ENABLED=false`.
 
-Le email di comando sono firmate (HMAC con la password IMAP) e valgono solo se arrivano da `RECEIVER`. Ogni
-comando viene applicato una volta sola: gli ID dei messaggi già letti sono salvati nello stato.
+I link dei pulsanti sono firmati (HMAC con `RADAR_LINK_SECRET`): un link alterato o inventato viene rifiutato
+dal Worker.
 
 ## Repo pubblico: cosa resta privato
 
@@ -68,30 +68,42 @@ Quantità e soglie sono in `config.yaml` → `selection`.
 
 1. Crea il **secondo account Zotero** e, su zotero.org/settings/keys, una chiave con **accesso in scrittura**.
    Anche la chiave dell'account principale (`ZOTERO_KEY`) deve avere la scrittura, perché i ➕ aggiungono lì.
-2. Crea una **password per le app** per la casella `RECEIVER`, che serve a leggere le tue scelte
-   (Gmail: myaccount.google.com/apppasswords, con la verifica in due passaggi attiva).
-3. **Secrets** (Settings → Secrets and variables → Actions):
+2. Scegli un **segreto per i link**: una stringa casuale lunga, per esempio
+   `python -c "import secrets; print(secrets.token_hex(32))"`.
+3. **Pubblica il Worker** (account Cloudflare gratuito, come per "Add to Zotero"):
+
+   ```bash
+   cd topic_radar/worker
+   npx wrangler deploy
+   npx wrangler secret put LINK_SECRET        # il segreto del punto 2
+   npx wrangler secret put MAIN_ZOTERO_ID     # = ZOTERO_ID
+   npx wrangler secret put MAIN_ZOTERO_KEY    # = ZOTERO_KEY
+   npx wrangler secret put RADAR_ZOTERO_ID
+   npx wrangler secret put RADAR_ZOTERO_KEY
+   ```
+
+   `deploy` stampa l'URL, del tipo `https://topic-radar.<tuo-sottodominio>.workers.dev`.
+4. **Secrets** su GitHub (Settings → Secrets and variables → Actions):
 
    | Secret | Note |
    |---|---|
    | `ZOTERO_ID`, `SENDER`, `RECEIVER`, `API_SECRET_BREVO`, `OPENAI_API_BASE` | già presenti per "Send emails daily" |
    | `ZOTERO_KEY` | già presente, ma serve anche la **scrittura** |
    | `RADAR_ZOTERO_ID`, `RADAR_ZOTERO_KEY` | il secondo account (ID numerico + chiave con scrittura) |
-   | `RADAR_IMAP_PASSWORD` | la password per le app della casella `RECEIVER` |
+   | `RADAR_WORKER_URL` | l'URL stampato da `wrangler deploy` |
+   | `RADAR_LINK_SECRET` | il segreto del punto 2 (lo stesso messo nel Worker) |
    | `RADAR_OPENAI_API_KEY` | la chiave del nuovo account LLM (stesso sito di `OPENAI_API_BASE`) |
    | `S2_API_KEY` | consigliata, gratuita: https://www.semanticscholar.org/product/api#api-key-form |
 
-4. **Variables**:
+5. **Variables**:
 
    | Variable | Esempio |
    |---|---|
-   | `RADAR_COLLECTION` | `Diffusion/Masked`; più nicchie separate da `;` (un'email per nicchia) |
+   | `RADAR_COLLECTION` | **obbligatoria**: `Diffusion/Masked`; più nicchie separate da `;` (un'email per nicchia) |
    | `LLM_MODEL` | il modello usato su quel sito |
-   | `IMAP_SERVER` | facoltativa: ricavata dall'indirizzo (gmail.com → `imap.gmail.com`) |
-   | `RADAR_IMAP_USER` | facoltativa: casella diversa da `RECEIVER` per i comandi |
    | `RADAR_ENABLED` | `false` spegne il radar (zotero-arxiv-daily non viene toccato) |
 
-5. Lancia **Topic Radar** (il primo giro parte sempre), poi aggiungilo al tuo sistema che avvia i workflow al mattino.
+6. Lancia **Topic Radar** (il primo giro parte sempre), poi aggiungilo al tuo sistema che avvia i workflow al mattino.
 
 **Cambiare nicchia** = cambiare `RADAR_COLLECTION`.
 
@@ -101,7 +113,7 @@ Quantità e soglie sono in `config.yaml` → `selection`.
 pip install torch --index-url https://download.pytorch.org/whl/cpu
 pip install -r requirements.txt
 python radar.py --dry-run                    # solo report in output/ (nessuna email, niente Zotero)
-python decide.py                             # applica le decisioni ricevute, dice se serve un giro
+python decide.py                             # dice se serve un giro (run=true/false)
 python radar.py --send --zotero              # come il workflow (--force per ignorare il salto)
 ```
 
@@ -119,8 +131,7 @@ nicchia; finiscono nell'email e nella nota Zotero del paper.
 
 ## Limiti noti
 
-- I pulsanti sono link `mailto:`: su telefono e nei client desktop aprono l'email pronta. Su Gmail web serve che
-  Gmail sia il gestore dei link email del browser.
-- Le decisioni vengono applicate al giro successivo.
+- Il clic esegue subito l'azione. Alcuni servizi email aziendali (es. Outlook con "Safe Links") aprono in automatico
+  i link per controllarli, e così attiverebbero i pulsanti: con Gmail non succede.
 - Senza `S2_API_KEY` Semantic Scholar risponde spesso 429: un giro completo può superare i 10 minuti.
 - Con SPECTER2 qualche paper di *image* diffusion con testo (es. Imagen) può passare: scartalo e verrà penalizzato.

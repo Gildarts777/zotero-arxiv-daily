@@ -3,7 +3,8 @@
 Layout, for each niche (root = "Topic Radar/<niche>"):
     <root>/Proposti   papers sent by e-mail, waiting for your decision
     <root>/Scartati   rejected papers (negative examples)
-    <root>/Accettati  papers you moved into your main library (kept as a log)
+    <root>/Accettati  papers you added to your main library (kept as a log)
+The ➕ / 🗑 clicks are applied by the Cloudflare Worker (worker/worker.js), not here.
 A note tagged `topic-radar-state` stores the per-niche fingerprint used to skip unchanged days.
 """
 
@@ -21,6 +22,7 @@ from library import load_library
 log = logging.getLogger(__name__)
 PENDING, REJECTED, ACCEPTED = "Proposti", "Scartati", "Accettati"
 STATE_TAG = "topic-radar-state"
+FORCE_TAG = "topic-radar-force"  # left by the Worker's "run anyway" link
 SECTION_TAGS = {"niche": "radar:nicchia", "foundational": "radar:fondamentale",
                 "top_venue": "radar:top-venue", "rising": "radar:emergente"}
 
@@ -58,10 +60,6 @@ class Account:
     def create(self, item):
         return self.z.create_items([item])["successful"]["0"]["key"]
 
-    def set_collections(self, item, remove=(), add=()):
-        cols = [k for k in item["data"]["collections"] if k not in remove] + [k for k in add]
-        self.z.update_item({"key": item["key"], "version": item["version"], "collections": cols})
-
 
 class RadarStore(Account):
     def niche_keys(self, root):
@@ -84,13 +82,6 @@ class RadarStore(Account):
                 c.zotero_key = key
             except Exception as e:  # keep going: the e-mail still lists the paper
                 log.warning("Zotero add failed (%s)", type(e).__name__)
-
-    def find_by_paper(self, paper_id):
-        items = self.z.items(tag=s2_tag(paper_id))
-        return next((i for i in items if i["data"]["itemType"] != "note"), None)
-
-    def notes(self, item_key):
-        return [n for n in self.z.children(item_key) if n["data"]["itemType"] == "note"]
 
     # -- run state -----------------------------------------------------------
     def _state_note(self):
@@ -170,14 +161,6 @@ def fill_item(item, c, collection_key):
     item["tags"] = [{"tag": "topic-radar"}, {"tag": SECTION_TAGS.get(c.section, "radar")},
                     {"tag": s2_tag(p["paperId"])}]
     item["collections"] = [collection_key]
-
-
-def copy_item(data, collection_key):
-    """Item data from one library, ready to be created in another one."""
-    new = {k: v for k, v in data.items() if k not in ("key", "version", "dateAdded", "dateModified")}
-    new["collections"] = [collection_key]
-    new["relations"] = {}
-    return new
 
 
 def split_name(name):

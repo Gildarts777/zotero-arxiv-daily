@@ -33,9 +33,8 @@ env:
   SENDER: ${{ secrets.SENDER }}
   RECEIVER: ${{ secrets.RECEIVER }}
   BREVO_API_KEY: ${{ secrets.API_SECRET_BREVO }}          # same secret as "Send emails daily"
-  RADAR_IMAP_PASSWORD: ${{ secrets.RADAR_IMAP_PASSWORD }}  # app password of the RECEIVER mailbox
-  RADAR_IMAP_USER: ${{ vars.RADAR_IMAP_USER }}
-  IMAP_SERVER: ${{ vars.IMAP_SERVER }}
+  RADAR_WORKER_URL: ${{ secrets.RADAR_WORKER_URL }}        # Cloudflare Worker for the ➕/🗑 buttons
+  RADAR_LINK_SECRET: ${{ secrets.RADAR_LINK_SECRET }}      # = the Worker's LINK_SECRET
   RADAR_COLLECTION: ${{ inputs.collection || vars.RADAR_COLLECTION }}
 
 jobs:
