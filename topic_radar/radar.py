@@ -222,7 +222,7 @@ def main():
                                                  s2, encoder, today, venues)
         papers = [c for cands in picked.values() for c in cands]
         for c in papers:
-            c.tldr, c.niche_note = summarizer.summarize(profile["name"], seed_titles[:40], c.paper)
+            c.tldr, c.niche_note = summarizer.summarize(profile["name"], seed_titles[:cfg["llm"].get("niche_titles", 15)], c.paper)
 
         actions = footer = None
         if args.zotero:

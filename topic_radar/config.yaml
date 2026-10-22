@@ -82,6 +82,8 @@ llm:
   base_url: ${OPENAI_API_BASE}
   model: ${LLM_MODEL}              # e.g. openai/gpt-oss-20b on Groq
   max_tokens: 2048                 # reasoning models (gpt-oss) spend tokens before answering
+  min_interval: 3                  # seconds between calls (free tiers limit tokens per minute)
+  niche_titles: 15                 # niche papers listed in each prompt (shorter = fewer tokens)
   language: Italian
 
 email:

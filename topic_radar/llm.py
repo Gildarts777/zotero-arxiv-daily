@@ -9,6 +9,7 @@ Without a provider the S2 TL;DR (when available) is used.
 
 import logging
 import re
+import time
 
 import requests
 
@@ -44,6 +45,7 @@ class Summarizer:
         self.cfg = cfg or {}
         self.provider = (self.cfg.get("provider") or "none").lower()
         self.language = self.cfg.get("language", "Italian")
+        self._last_call = 0.0
         if self.provider == "openai" and not (self.cfg.get("api_key") and self.cfg.get("model")):
             log.warning("LLM provider 'openai' needs RADAR_OPENAI_API_KEY and LLM_MODEL: "
                         "TL;DR from Semantic Scholar only")
@@ -62,21 +64,35 @@ class Summarizer:
         try:
             text = self._openai(system, prompt) if self.provider == "openai" else self._anthropic(system, prompt)
         except Exception as e:  # one failed summary must not stop the daily run
-            log.warning("LLM failed for %r: %s", paper.get("title"), e)
+            log.warning("LLM failed (%s): Semantic Scholar TL;DR used", type(e).__name__)  # no titles: public logs
             return fallback
         return parse(text) if text else fallback
 
     def _openai(self, system, prompt):
+        """Free tiers (e.g. Groq) limit tokens per minute: pace the calls and honour 429 Retry-After."""
         base = self.cfg.get("base_url") or "https://api.openai.com/v1"
-        r = requests.post(
-            base.rstrip("/") + "/chat/completions",
-            headers={"Authorization": f"Bearer {self.cfg['api_key']}"},
-            json={"model": self.cfg["model"], "max_tokens": self.cfg.get("max_tokens", 1024),
-                  "messages": [{"role": "system", "content": system}, {"role": "user", "content": prompt}]},
-            timeout=120,
-        )
+        wait = float(self.cfg.get("min_interval", 3)) - (time.time() - self._last_call)
+        if wait > 0:
+            time.sleep(wait)
+        for attempt in range(int(self.cfg.get("max_retries", 6))):
+            self._last_call = time.time()
+            r = requests.post(
+                base.rstrip("/") + "/chat/completions",
+                headers={"Authorization": f"Bearer {self.cfg['api_key']}"},
+                json={"model": self.cfg["model"], "max_tokens": self.cfg.get("max_tokens", 1024),
+                      "messages": [{"role": "system", "content": system}, {"role": "user", "content": prompt}]},
+                timeout=120,
+            )
+            if r.status_code == 429 or r.status_code >= 500:
+                try:
+                    delay = float(r.headers.get("retry-after", ""))
+                except ValueError:
+                    delay = 10 * (attempt + 1)
+                time.sleep(min(max(delay, 1), 90))
+                continue
+            r.raise_for_status()
+            return r.json()["choices"][0]["message"]["content"]
         r.raise_for_status()
-        return r.json()["choices"][0]["message"]["content"]
 
     def _anthropic(self, system, prompt):
         response = self.client.beta.messages.create(

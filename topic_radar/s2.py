@@ -8,6 +8,7 @@ import hashlib
 import json
 import logging
 import os
+import re
 import time
 from pathlib import Path
 
@@ -55,22 +56,23 @@ class S2Client:
             try:
                 r = self.session.request(method, url, params=params, json=body, timeout=90)
             except requests.RequestException as e:
-                log.warning("S2 network error (%s), retrying", e)
+                log.warning("S2 network error (%s), retrying", type(e).__name__)
                 time.sleep(min(60, 2 ** attempt))
                 continue
             if r.status_code == 429 or r.status_code >= 500:
                 delay = min(60, 2 * (attempt + 1))
-                log.info("S2 %s on %s, retry in %ss", r.status_code, path, delay)
+                # no paper ids in the message: GitHub logs are public
+                log.info("S2 %s on %s, retry in %ss", r.status_code, re.sub(r"[0-9a-f]{40}", "<id>", path), delay)
                 time.sleep(delay)
                 continue
             if r.status_code == 404:
                 return None
             if not r.ok:
-                raise RuntimeError(f"S2 {r.status_code} on {path}: {r.text[:300]}")
+                raise RuntimeError(f"S2 {r.status_code} on {re.sub(r'[0-9a-f]{40}', '<id>', path)}")
             data = r.json()
             cp.write_text(json.dumps(data), encoding="utf-8")
             return data
-        raise RuntimeError(f"Semantic Scholar unavailable after {self.max_retries} retries: {path}")
+        raise RuntimeError(f"Semantic Scholar unavailable after {self.max_retries} retries")
 
     # -- endpoints ---------------------------------------------------------
     def batch(self, ids, fields=PAPER_FIELDS, chunk=400):
