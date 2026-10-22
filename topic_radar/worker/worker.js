@@ -109,7 +109,7 @@ function strip(data) {
 }
 
 // -- signing ------------------------------------------------------------------
-export async function sign(secret, ...parts) {
+async function sign(secret, ...parts) {
   const key = await crypto.subtle.importKey("raw", new TextEncoder().encode(secret),
     { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
   const mac = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(parts.join(":")));
