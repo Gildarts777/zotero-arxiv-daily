@@ -1,7 +1,7 @@
-"""One-click decision links for the e-mail, handled by the Cloudflare Worker in worker/worker.js.
+"""One-click decision links for the e-mail, handled by the Cloudflare Worker (worker/radar.js, added to the "Add to Zotero" Worker).
 
-Links are signed with HMAC-SHA256 of RADAR_LINK_SECRET (same value as the Worker's LINK_SECRET);
-`sign` must stay byte-for-byte compatible with `sign` in worker.js.
+Links are signed with HMAC-SHA256 of RADAR_LINK_SECRET (same value as the Worker's RADAR_LINK_SECRET);
+`sign` must stay byte-for-byte compatible with `radarSign` in worker/radar.js.
 """
 
 import hashlib

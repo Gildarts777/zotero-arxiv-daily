@@ -4,7 +4,7 @@ Layout, for each niche (root = "Topic Radar/<niche>"):
     <root>/Proposti   papers sent by e-mail, waiting for your decision
     <root>/Scartati   rejected papers (negative examples)
     <root>/Accettati  papers you added to your main library (kept as a log)
-The ➕ / 🗑 clicks are applied by the Cloudflare Worker (worker/worker.js), not here.
+The ➕ / 🗑 clicks are applied by the "Add to Zotero" Cloudflare Worker (worker/radar.js), not here.
 A note tagged `topic-radar-state` stores the per-niche fingerprint used to skip unchanged days.
 """
 

@@ -21,7 +21,7 @@ scarti. Pensato per convergere su una nicchia stretta, per esempio per scrivere 
 1. **Email**: ogni paper ha i pulsanti `➕ Diffusion`, `➕ Masked`, `➕ Continuous` (la collezione di riferimento e le
    sue sottocollezioni dirette) e `🗑 Scarta`.
 2. **Un clic e basta**, come "Add to Zotero" nel daily: il pulsante apre una pagina di conferma e la scelta è già
-   applicata su Zotero (da un piccolo Cloudflare Worker, cartella `worker/`). Nessuna email da inviare. Puoi decidere
+   applicata su Zotero dallo stesso Cloudflare Worker di "Add to Zotero" (codice in `worker/radar.js`). Nessuna email da inviare. Puoi decidere
    solo su alcuni paper; un secondo clic sullo stesso paper non fa nulla.
    - `➕`: copia il paper, con la nota TL;DR, nella collezione scelta dell'account principale. Diventa un seme e la
      nicchia si stringe in quella direzione;
@@ -70,27 +70,22 @@ Quantità e soglie sono in `config.yaml` → `selection`.
    Anche la chiave dell'account principale (`ZOTERO_KEY`) deve avere la scrittura, perché i ➕ aggiungono lì.
 2. Scegli un **segreto per i link**: una stringa casuale lunga, per esempio
    `python -c "import secrets; print(secrets.token_hex(32))"`.
-3. **Pubblica il Worker** (account Cloudflare gratuito, come per "Add to Zotero"):
+3. **Aggiorna il Worker "Add to Zotero"** (`zotero-add-paper` su Cloudflare): i pulsanti usano lo stesso Worker.
+   - **Edit code**: incolla in fondo al file tutto il contenuto di [`worker/radar.js`](worker/radar.js) e aggiungi
+     nel router, subito prima di `return new Response("Not found", ...)`, la riga
+     `if (url.pathname.startsWith("/radar")) return handleRadar(request, env);`. Poi **Deploy**.
+   - **Settings → Variables and Secrets**: aggiungi come *Secret* `RADAR_LINK_SECRET` (il segreto del punto 2),
+     `RADAR_ZOTERO_ID` e `RADAR_ZOTERO_KEY` (il secondo account). L'account principale usa `ZOTERO_USER_ID` e
+     `ZOTERO_API_KEY` che il Worker ha già; quella chiave deve avere la **scrittura**.
 
-   ```bash
-   cd topic_radar/worker
-   npx wrangler deploy
-   npx wrangler secret put LINK_SECRET        # il segreto del punto 2
-   npx wrangler secret put MAIN_ZOTERO_ID     # = ZOTERO_ID
-   npx wrangler secret put MAIN_ZOTERO_KEY    # = ZOTERO_KEY
-   npx wrangler secret put RADAR_ZOTERO_ID
-   npx wrangler secret put RADAR_ZOTERO_KEY
-   ```
-
-   `deploy` stampa l'URL, del tipo `https://topic-radar.<tuo-sottodominio>.workers.dev`.
+   Il pulsante "Add to Zotero" del daily continua a funzionare come prima.
 4. **Secrets** su GitHub (Settings → Secrets and variables → Actions):
 
    | Secret | Note |
    |---|---|
-   | `ZOTERO_ID`, `SENDER`, `RECEIVER`, `API_SECRET_BREVO`, `OPENAI_API_BASE` | già presenti per "Send emails daily" |
+   | `ZOTERO_ID`, `SENDER`, `RECEIVER`, `API_SECRET_BREVO`, `OPENAI_API_BASE`, `ZOTERO_ADD_URL` | già presenti per "Send emails daily" (l'URL del Worker è `ZOTERO_ADD_URL`) |
    | `ZOTERO_KEY` | già presente, ma serve anche la **scrittura** |
    | `RADAR_ZOTERO_ID`, `RADAR_ZOTERO_KEY` | il secondo account (ID numerico + chiave con scrittura) |
-   | `RADAR_WORKER_URL` | l'URL stampato da `wrangler deploy` |
    | `RADAR_LINK_SECRET` | il segreto del punto 2 (lo stesso messo nel Worker) |
    | `RADAR_OPENAI_API_KEY` | la chiave del nuovo account LLM (stesso sito di `OPENAI_API_BASE`) |
    | `S2_API_KEY` | consigliata, gratuita: https://www.semanticscholar.org/product/api#api-key-form |

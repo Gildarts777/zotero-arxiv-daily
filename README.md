@@ -37,7 +37,7 @@ ICLR, AAAI, IJCAI…) and fast-rising arXiv preprints. It then e-mails the close
 - candidates come from the citation graph of the collection (papers citing your papers, shared references,
   Semantic Scholar recommendations) and are ranked with SPECTER2 embeddings;
 - every paper in the e-mail has one-click buttons, like "Add to Zotero": **➕ add it** to the niche or to one of
-  its subcollections, or **🗑 discard it**. A small Cloudflare Worker applies the choice to Zotero right away.
+  its subcollections, or **🗑 discard it**. The same Cloudflare Worker as "Add to Zotero" applies the choice right away.
   Discarded papers go to a second Zotero account and act as negative examples;
 - nothing is ever proposed twice, and a run is skipped when nothing changed since the last e-mail;
 - no paper data is written to this public repo or its logs: the state lives in the second Zotero account.
@@ -71,7 +71,7 @@ Tests: `tests/test_add_to_zotero.py` and `test-add-to-zotero.yml`; end-to-end: `
 | `ZOTERO_ID`, `ZOTERO_KEY`, `SENDER`, `RECEIVER`, `OPENAI_API_KEY`, `OPENAI_API_BASE` | Send emails daily (as upstream) |
 | `API_SECRET_BREVO` | both pipelines (e-mail) |
 | `ZOTERO_ADD_URL` | Send emails daily (Add to Zotero button) |
-| `RADAR_ZOTERO_ID`, `RADAR_ZOTERO_KEY`, `RADAR_WORKER_URL`, `RADAR_LINK_SECRET`, `RADAR_OPENAI_API_KEY`, `S2_API_KEY` | Topic Radar |
+| `RADAR_ZOTERO_ID`, `RADAR_ZOTERO_KEY`, `RADAR_LINK_SECRET`, `RADAR_OPENAI_API_KEY`, `S2_API_KEY` | Topic Radar (plus `ZOTERO_ADD_URL`: same Worker) |
 
 ## 📃 License
 

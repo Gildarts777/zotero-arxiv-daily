@@ -15,8 +15,8 @@ radar_zotero:
 
 # One-click ➕ / 🗑 buttons in the e-mail, handled by the Cloudflare Worker in worker/ (see README).
 links:
-  worker_url: ${RADAR_WORKER_URL}   # e.g. https://topic-radar.<you>.workers.dev
-  secret: ${RADAR_LINK_SECRET}      # same value as the Worker's LINK_SECRET
+  worker_url: ${RADAR_WORKER_URL}   # the "Add to Zotero" Worker (workflow default: ZOTERO_ADD_URL)
+  secret: ${RADAR_LINK_SECRET}      # same value as the Worker's RADAR_LINK_SECRET
   # Skip a niche when nothing changed since its last digest (no click, no manual change in the
   # niche or Scartati). Override: "Topic Radar (force)", --force, or the "run anyway" e-mail link.
   skip_if_unchanged: true

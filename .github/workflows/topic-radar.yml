@@ -33,8 +33,9 @@ env:
   SENDER: ${{ secrets.SENDER }}
   RECEIVER: ${{ secrets.RECEIVER }}
   BREVO_API_KEY: ${{ secrets.API_SECRET_BREVO }}          # same secret as "Send emails daily"
-  RADAR_WORKER_URL: ${{ secrets.RADAR_WORKER_URL }}        # Cloudflare Worker for the ➕/🗑 buttons
-  RADAR_LINK_SECRET: ${{ secrets.RADAR_LINK_SECRET }}      # = the Worker's LINK_SECRET
+  # ➕/🗑 buttons: same Cloudflare Worker as "Add to Zotero" (topic_radar/worker/radar.js added to it)
+  RADAR_WORKER_URL: ${{ secrets.RADAR_WORKER_URL || secrets.ZOTERO_ADD_URL }}
+  RADAR_LINK_SECRET: ${{ secrets.RADAR_LINK_SECRET }}      # = the Worker's RADAR_LINK_SECRET
   RADAR_COLLECTION: ${{ inputs.collection || vars.RADAR_COLLECTION }}
 
 jobs:
