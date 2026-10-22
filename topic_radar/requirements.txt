@@ -1,0 +1,7 @@
+pyzotero>=1.6
+requests>=2.31
+pyyaml>=6
+numpy>=1.26
+sentence-transformers>=3
+adapters>=1.2  # SPECTER2 adapter; pulls transformers 4.x
+anthropic>=1.0  # only for llm.provider: anthropic

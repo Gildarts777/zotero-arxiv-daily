@@ -1,0 +1,20 @@
+# Same as "Topic Radar", but runs even when nothing changed since the last digest.
+name: Topic Radar (force)
+
+on:
+  workflow_dispatch:
+    inputs:
+      collection:
+        description: "Reference collection (empty = RADAR_COLLECTION variable), e.g. Diffusion/Masked"
+        required: false
+
+permissions:
+  contents: read
+
+jobs:
+  radar:
+    uses: ./.github/workflows/topic-radar.yml
+    with:
+      force: true
+      collection: ${{ inputs.collection }}
+    secrets: inherit

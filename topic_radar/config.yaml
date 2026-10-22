@@ -1,0 +1,116 @@
+# Topic Radar configuration. ${VAR} / ${VAR:-default} are read from environment variables
+# (GitHub Actions: repository secrets / variables).
+
+zotero:
+  mode: ${ZOTERO_MODE:-local}  # local = Zotero desktop must be running; web = Zotero Web API (GitHub Actions)
+  user_id: ${ZOTERO_ID}
+  api_key: ${ZOTERO_KEY}       # needs write access: accepted papers are added here
+
+# Second Zotero account: every proposal lives here, so nothing is ever proposed twice and no state is
+# stored in the (public) repo. Per niche: <root>/Proposti, <root>/Scartati, <root>/Accettati.
+radar_zotero:
+  user_id: ${RADAR_ZOTERO_ID}
+  api_key: ${RADAR_ZOTERO_KEY}  # write access
+  root: "Topic Radar/{name}"
+
+# Decisions arrive by e-mail: the buttons in the digest open an e-mail to yourself (RECEIVER), read over
+# IMAP at the next run. Needs an app password of that mailbox (Gmail: myaccount.google.com/apppasswords).
+decisions:
+  imap_user: ${RADAR_IMAP_USER:-}       # default: RECEIVER
+  imap_password: ${RADAR_IMAP_PASSWORD}  # also the key that signs the buttons
+  imap_server: ${IMAP_SERVER:-}          # default: derived from the address (gmail.com -> imap.gmail.com)
+  imap_port: 993
+  imap_folder: INBOX
+  # Skip a niche when nothing changed since its last digest (no decision, no manual change in the
+  # niche or Scartati). Override: workflow "force" input, --force, or the "run anyway" e-mail link.
+  skip_if_unchanged: true
+
+# The reference collection = your niche. Change it with the RADAR_COLLECTION variable, e.g.
+# "Diffusion/Masked"; several niches separated by ';' (one e-mail each).
+profiles:
+  - collection: ${RADAR_COLLECTION}     # required
+    name: ${RADAR_NAME:-}       # default: the collection path
+    include_subcollections: true
+    # Optional Semantic Scholar keyword searches ("phrase", | = OR, + = AND), sorted by citations.
+    # Not needed: candidates already come from the citation graph of the collection.
+    queries: []
+    year_from: 2015
+
+sources:
+  reference_min_seed_refs: 2  # keep references cited by at least N seeds
+  citations_per_seed: 500     # papers citing each seed (bibliographic coupling = strongest niche signal)
+  recommendations_limit: 500  # S2 recommendations (seeds = positives, rejected = negatives)
+  bulk_min_citations: 10      # keyword search only
+  bulk_max_results: 1000
+  cache_days: 7               # cache S2 responses to stay within the free rate limit
+
+selection:
+  per_section:                # papers per section in each e-mail (0 = hide the section)
+    niche: 8
+    foundational: 3
+    top_venue: 3
+    rising: 3
+  # relevance = sim(collection) - contrast_weight * sim(rest of library) - rejected_weight * sim(rejected)
+  contrast_weight: 0.5
+  rejected_weight: 0.5
+  # Niche: the most similar papers, no citation/venue requirement
+  niche_min_relevance_quantile: 0.9   # top 10% of candidates by relevance
+  niche_max_age_years: 10
+  niche_relevance_weight: 0.85        # the rest: how many of your papers it cites / is cited by
+  # Other sections
+  min_relevance_quantile: 0.6
+  foundational_min_relevance_quantile: 0.4
+  relevance_weight: 0.75      # score = w * relevance_rank + (1 - w) * impact_rank
+  foundational_min_seed_refs: 3
+  foundational_min_seed_frac: 0.08
+  foundational_max_citations: 20000  # skip universal classics (Transformer, BERT, GPT-3...) you surely know
+  max_age_years: 6
+  top_venue_min_citations: 5
+  rising_max_age_months: 18
+  rising_min_cites_per_month: 3
+
+embedding:
+  # SPECTER2 + proximity adapter (needs the `adapters` package, transformers < 5).
+  # It separates topic papers from generic ones (Transformer, BERT, benchmarks) much better than MiniLM.
+  model: allenai/specter2_base
+  adapter: allenai/specter2
+  pooling: cls
+  # Lightweight alternative without `adapters`:
+  # model: sentence-transformers/all-MiniLM-L6-v2
+
+llm:
+  # openai = any OpenAI-compatible endpoint (same site as zotero-arxiv-daily, separate key);
+  # anthropic = Claude (ANTHROPIC_API_KEY); none = Semantic Scholar TL;DR only
+  provider: ${LLM_PROVIDER:-openai}
+  api_key: ${RADAR_OPENAI_API_KEY}
+  base_url: ${OPENAI_API_BASE}
+  model: ${LLM_MODEL}
+  language: Italian
+
+email:
+  sender: ${SENDER}
+  receiver: ${RECEIVER}
+  brevo_api_key: ${BREVO_API_KEY}      # Brevo HTTP API, as in this fork's zotero-arxiv-daily
+  # SMTP fallback, used only without BREVO_API_KEY
+  smtp_server: ${SMTP_SERVER:-smtp.gmail.com}
+  smtp_port: ${SMTP_PORT:-465}
+  sender_password: ${SENDER_PASSWORD}
+
+# A* venues (CORE ranking + TACL). Matched on the DBLP key prefix first, then on the venue name.
+venues:
+  exclude: ['findings', 'workshop', 'student research', 'demo']
+  list:
+    ACL:     {dblp: [conf/acl/],     names: ['^ACL$', 'Annual Meeting of the Association for Computational Linguistics']}
+    EMNLP:   {dblp: [conf/emnlp/],   names: ['^EMNLP$', 'Empirical Methods in Natural Language Processing']}
+    NAACL:   {dblp: [conf/naacl/],   names: ['^NAACL', 'North American Chapter of the Association for Computational Linguistics']}
+    TACL:    {dblp: [journals/tacl/], names: ['Transactions of the Association for Computational Linguistics']}
+    NeurIPS: {dblp: [conf/nips/],    names: ['Neural Information Processing Systems', '^NeurIPS']}
+    ICML:    {dblp: [conf/icml/],    names: ['International Conference on Machine Learning$', '^ICML$']}
+    ICLR:    {dblp: [conf/iclr/],    names: ['International Conference on Learning Representations', '^ICLR$']}
+    AAAI:    {dblp: [conf/aaai/],    names: ['AAAI Conference on Artificial Intelligence', '^AAAI$']}
+    IJCAI:   {dblp: [conf/ijcai/],   names: ['International Joint Conference on Artificial Intelligence', '^IJCAI$']}
+    COLT:    {dblp: [conf/colt/],    names: ['Conference on Learning Theory', 'Annual Conference Computational Learning Theory']}
+    CVPR:    {dblp: [conf/cvpr/],    names: ['Computer Vision and Pattern Recognition']}
+    ICCV:    {dblp: [conf/iccv/],    names: ['International Conference on Computer Vision$', 'IEEE International Conference on Computer Vision']}
+    JMLR:    {dblp: [journals/jmlr/], names: ['Journal of Machine Learning Research']}
+    TPAMI:   {dblp: [journals/pami/], names: ['Pattern Analysis and Machine Intelligence']}

@@ -1,0 +1,87 @@
+# Lives at the repository root: .github/workflows/topic-radar.yml, code in topic_radar/.
+# The repo can be public: nothing about your papers is written to the repo, the logs or the artifacts
+# (the state lives in the radar Zotero account).
+# Two entry points, both started by hand (Actions -> Run workflow) or by an external scheduler:
+#   "Topic Radar"          skips the run when no niche changed since the last digest
+#   "Topic Radar (force)"  always runs (topic-radar-force.yml calls this file with force: true)
+name: Topic Radar
+
+on:
+  workflow_dispatch:
+    inputs:
+      collection:
+        description: "Reference collection (empty = RADAR_COLLECTION variable), e.g. Diffusion/Masked"
+        required: false
+  workflow_call:
+    inputs:
+      collection:
+        type: string
+        required: false
+      force:
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+env:
+  ZOTERO_MODE: web
+  ZOTERO_ID: ${{ secrets.ZOTERO_ID }}
+  ZOTERO_KEY: ${{ secrets.ZOTERO_KEY }}
+  RADAR_ZOTERO_ID: ${{ secrets.RADAR_ZOTERO_ID }}
+  RADAR_ZOTERO_KEY: ${{ secrets.RADAR_ZOTERO_KEY }}
+  SENDER: ${{ secrets.SENDER }}
+  RECEIVER: ${{ secrets.RECEIVER }}
+  BREVO_API_KEY: ${{ secrets.API_SECRET_BREVO }}          # same secret as "Send emails daily"
+  RADAR_IMAP_PASSWORD: ${{ secrets.RADAR_IMAP_PASSWORD }}  # app password of the RECEIVER mailbox
+  RADAR_IMAP_USER: ${{ vars.RADAR_IMAP_USER }}
+  IMAP_SERVER: ${{ vars.IMAP_SERVER }}
+  RADAR_COLLECTION: ${{ inputs.collection || vars.RADAR_COLLECTION }}
+
+jobs:
+  radar:
+    # Off switch: repository variable RADAR_ENABLED=false stops the radar entirely (zotero-arxiv-daily is untouched).
+    if: vars.RADAR_ENABLED != 'false'
+    concurrency: topic-radar
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    defaults:
+      run:
+        working-directory: topic_radar
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # 1) Light step: apply e-mail decisions, decide whether today's run is needed.
+      - name: Read decisions
+        id: check
+        run: |
+          pip install --quiet pyzotero requests pyyaml
+          python decide.py ${{ inputs.force && '--force' || '' }}
+
+      # 2) Heavy step, only when a niche changed (or forced).
+      - name: Install
+        if: steps.check.outputs.run == 'true'
+        run: |
+          pip install --quiet torch --index-url https://download.pytorch.org/whl/cpu
+          pip install --quiet -r requirements.txt
+      - uses: actions/cache@v4
+        if: steps.check.outputs.run == 'true'
+        with:
+          path: |
+            topic_radar/cache
+            ~/.cache/huggingface
+          key: radar-${{ github.run_id }}
+          restore-keys: radar-
+      - name: Run
+        if: steps.check.outputs.run == 'true'
+        env:
+          S2_API_KEY: ${{ secrets.S2_API_KEY }}
+          RADAR_OPENAI_API_KEY: ${{ secrets.RADAR_OPENAI_API_KEY }}
+          OPENAI_API_BASE: ${{ secrets.OPENAI_API_BASE }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          LLM_PROVIDER: ${{ vars.LLM_PROVIDER }}
+          LLM_MODEL: ${{ vars.LLM_MODEL }}
+        run: python radar.py --send --zotero ${{ steps.check.outputs.force == 'true' && '--force' || '' }}
