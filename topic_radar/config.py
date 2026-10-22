@@ -19,7 +19,8 @@ def _expand(obj):
     if isinstance(obj, str):
         m = re.fullmatch(r"\$\{(\w+)(?::-(.*))?\}", obj)
         if m:
-            return os.environ.get(m.group(1)) or m.group(2)
+            # strip: secrets pasted with a trailing space/newline break HTTP headers
+            return (os.environ.get(m.group(1)) or "").strip() or m.group(2)
     return obj
 
 

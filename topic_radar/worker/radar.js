@@ -81,8 +81,8 @@ async function radarDecide(env, action, paperId, from, to, log) {
 
 // -- Zotero Web API (main account = the Worker's existing ZOTERO_USER_ID / ZOTERO_API_KEY) --
 async function radarZotero(env, which, method, path, body, extraHeaders = {}) {
-  const id = which === "main" ? env.ZOTERO_USER_ID : env.RADAR_ZOTERO_ID;
-  const key = which === "main" ? env.ZOTERO_API_KEY : env.RADAR_ZOTERO_KEY;
+  const id = String(which === "main" ? env.ZOTERO_USER_ID : env.RADAR_ZOTERO_ID).trim();
+  const key = String(which === "main" ? env.ZOTERO_API_KEY : env.RADAR_ZOTERO_KEY).trim();
   const res = await fetch(`https://api.zotero.org/users/${id}${path}`, {
     method,
     headers: { "Zotero-API-Key": key, "Zotero-API-Version": "3", "Content-Type": "application/json", ...extraHeaders },
@@ -120,7 +120,7 @@ async function radarSign(secret, ...parts) {
 
 async function radarVerify(env, sig, ...parts) {
   if (!env.RADAR_LINK_SECRET) throw radarError(500, "RADAR_LINK_SECRET non configurato nel Worker.");
-  const expected = await radarSign(env.RADAR_LINK_SECRET, ...parts);
+  const expected = await radarSign(String(env.RADAR_LINK_SECRET).trim(), ...parts);
   if (!sig || sig.length !== expected.length) throw radarError(403, "Link non valido.");
   let diff = 0;
   for (let i = 0; i < sig.length; i++) diff |= sig.charCodeAt(i) ^ expected.charCodeAt(i);
